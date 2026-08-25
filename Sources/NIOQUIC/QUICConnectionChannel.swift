@@ -435,9 +435,18 @@ extension QUICConnectionChannel.ConnectionView {
     }
 
     /// Notifies the connection that it should call back into the connection and drain its output
-    /// buffer. This is used for out-of-band writes.
-    func drainOutbound() {
+    /// buffer. This is used for tests.
+    func drainOutboundAndReconcileLifecycle() {
         self._channel.drainAndReconcileLifecycle()
+    }
+
+    /// Notifies the connection that it should call back into the connection and drain its output
+    /// buffer. Runs on the next event loop tick to avoid reentrancy. This is used for out-of-band
+    /// writes.
+    func drainOutbound() {
+        self._channel.eventLoop.assumeIsolated().execute {
+            self._channel.drainAndReconcileLifecycle()
+        }
     }
 
     /// Notifies the connection that the handshake completed.
@@ -713,7 +722,7 @@ extension QUICConnectionChannel {
         return body()
     }
 
-    private func drainOutput() {
+    fileprivate func drainOutput() {
         self.eventLoop.assertInEventLoop()
 
         guard self._isAllowedToDrain else { return }
